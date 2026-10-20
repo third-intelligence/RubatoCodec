@@ -1,0 +1,16 @@
+defaults:
+  - dataset: default
+  - model: default
+  - train: default
+log_dir: ./logs
+init_ckpt: null  # checkpoint for weights-only initialization
+wandb:
+  project: "rubatocodec"
+  entity: null
+  name: null  # defaults to log_dir basename if null
+hydra:
+  run:
+    dir: ${log_dir}  # Hydra output goes to <log_dir>/hydra
+  output_subdir: hydra
+  job:
+    chdir: True

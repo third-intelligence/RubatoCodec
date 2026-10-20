@@ -1,0 +1,32 @@
+num_workers: 28
+persistent_workers: true
+
+audio:
+  sr: 16000
+  output_sr: 44100
+
+train:
+  batch_size: 64
+  shuffle: true
+  # --- HuggingFace datasets ---
+  # hf_datasets:
+  #   - path: "your-org/your-speech-dataset"
+  #     split: "train"
+  #     name: null                    # dataset config name (optional)
+  #     audio_column: "audio"         # audio column name (default: "audio")
+  #     data_files: null              # specific data files (optional)
+  #   - path: "your-org/another-speech-dataset"
+  #     split: "train"
+  # hf_num_proc: 4                   # num_proc for load_dataset
+  # hf_cache_dir: null               # HF cache directory
+  # hf_min_sample_rate: 16000        # skip samples below this sample rate
+  # hf_skip_failed: true             # retry on failure instead of crashing
+  # hf_max_retries: 10               # max retry attempts per sample
+
+val:
+  batch_size: 8
+  shuffle: false
+  # hf_datasets is required here as well (validation drives checkpoint
+  # selection); hf_num_proc, etc. can also be set for validation
+
+min_audio_length: 96000

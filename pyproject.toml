@@ -1,0 +1,112 @@
+[project]
+name = "rubatocodec"
+version = "1.0.0"
+description = "RubatoCodec: Budgeted Adaptive Speech Tokenization with Streaming Decoding"
+readme = "README.md"
+# RubatoCodec is Apache-2.0; the distribution also includes MIT-licensed code.
+license = "Apache-2.0 AND MIT"
+license-files = ["LICENSE", "incl_licenses/LICENSE*"]
+requires-python = ">=3.12"
+# Core dependencies cover inference only (rubatocodec package).
+# Training / evaluation tooling is behind the optional extras below.
+dependencies = [
+    "einops>=0.8.0",
+    "huggingface-hub>=0.24.0",
+    "numpy>=2.0.0",
+    "omegaconf>=2.3.0",
+    "safetensors>=0.4.0",
+    "soundfile>=0.12.0",
+    # torch/torchao/torchtune are pinned as a verified working set (torchao 0.18
+    # is incompatible with torchtune 0.6: torchao.dtypes.nf4tensor moved).
+    "torch>=2.12.1,<2.13",
+    "torchao>=0.17.0,<0.18",
+    "torchaudio>=2.11.0",
+    "torchtune>=0.6.0,<0.7",
+    "tqdm>=4.66.0",
+    "transformers>=4.44.0",
+    "vector-quantize-pytorch>=1.17.0",
+]
+
+[project.optional-dependencies]
+# Training stack (training/ directory): PyTorch Lightning + Hydra + data pipeline
+train = [
+    "datasets>=3.0.0",
+    "hydra-core>=1.3.2",
+    "librosa>=0.10.0",
+    "matplotlib>=3.8.0",
+    "omegaconf>=2.3.0",
+    "pesq>=0.0.4",
+    "pystoi>=0.4.1",
+    "pytorch-lightning>=2.4.0",
+    "pyyaml>=6.0",
+    "torchcodec>=0.14.0",
+    "torchdata>=0.9.0",
+    "wandb>=0.28.0",
+]
+# Evaluation stack (eval/ directory): objective metrics
+eval = [
+    "datasets>=3.0.0",
+    "funasr>=1.1.0",
+    "jiwer>=3.0.0",
+    "librosa>=0.10.0",
+    "matplotlib>=3.8.0",
+    "omegaconf>=2.3.0",
+    "onnxruntime-gpu>=1.28.0",
+    "pandas>=2.0.0",
+    "pesq>=0.0.4",
+    "pyarrow>=15.0.0",
+    "pystoi>=0.4.1",
+    "s3prl>=0.4.17",
+    "speechbrain>=1.0.0",
+    "torchcodec>=0.14.0",
+    "torchmetrics>=1.4.0",
+    "utmosv2 @ git+https://github.com/sarulab-speech/UTMOSv2.git",
+    "zhconv>=1.4.0",
+    "zhon>=2.0.0",
+]
+
+[build-system]
+requires = ["setuptools>=77.0.3", "wheel"]
+build-backend = "setuptools.build_meta"
+
+# Only the inference API (rubatocodec/) is distributed as a package;
+# training/eval/scripts are development directories and are not packaged.
+[tool.setuptools.packages.find]
+include = ["rubatocodec*"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = [
+    "E",
+    "W",
+    "F",
+    "I",
+    "B",
+    "C4",
+    "UP",
+]
+ignore = [
+    "E501",
+    "B008",
+    "C901",
+]
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["F401"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["rubatocodec", "training", "eval", "examples"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "auto"
+
+[dependency-groups]
+dev = [
+    "ruff>=0.15.5",
+]

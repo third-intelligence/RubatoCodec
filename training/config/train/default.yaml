@@ -1,0 +1,91 @@
+# Training configuration for the released RubatoCodec model
+# (model=default). Steps / LR schedule (warmup/down_step) / checkpoint
+# frequency are set per run on the CLI:
+#   train.py dataset=... \
+#     train.trainer.max_steps=N train.trainer.min_steps=N \
+#     train.gen_schedule_params.down_step=... train.disc_schedule_params.down_step=... \
+#     train.ckpt_every_n_steps=2500 train.trainer.devices=G log_dir=...
+compile: false
+
+# If set, max_steps is auto-calculated from dataset length:
+#   max_steps = len(train_dataloader) // (devices * num_nodes) * epochs
+# When null, max_steps from trainer section is used as-is.
+epochs: null
+
+# ModelCheckpoint every_n_train_steps
+ckpt_every_n_steps: 20000
+
+# Freeze the acoustic encoder, semantic encoder, and fc_prior.
+freeze_encoder: false
+# Restrict the semantic-distillation loss to fired positions only
+# (standard setting for adaptive-firing training).
+sem_loss_fired_only: true
+
+trainer:
+  accelerator: 'gpu'
+  num_nodes: 1
+  devices: 1
+  min_steps: 100000
+  max_steps: 100000
+  precision: bf16-mixed
+  limit_val_batches: 2560
+  val_check_interval: 2000
+  num_sanity_val_steps: 0
+  limit_train_batches: 1.0
+  log_every_n_steps: 10
+
+# loss
+lambdas:
+  lambda_disc: 1.0
+  lambda_feat_match_loss: 1.0
+  lambda_mel_loss: 15.0
+  lambda_adv: 1.0
+  lambda_semantic_loss: 5
+  lambda_perceptual_loss: 1.0
+  lambda_distill_loss: 1.0  # difficulty-head distillation (only used when firing.signals includes "distill")
+  lambda_commit_loss: 1.0   # VQ-layer loss for quantizer.mode=rvq (DAC weights commitment 0.25 + codebook 1.0 are applied inside the quantizer)
+use_mel_loss: true
+use_feat_match_loss: true
+
+# Phase schedule (ratios must sum to 1.0, auto-normalized if not)
+# Phase 1: mel + semantic + VQ only (no discriminator)
+# Phase 2: + adversarial + discriminator + feature matching
+# Phase 3: + perceptual loss
+phase_schedule:
+  phase1_ratio: 0.1
+  phase2_ratio: 0.75
+  phase3_ratio: 0.15
+
+# Semantic model for the semantic loss (cb1 distillation teacher)
+semantic_model: "facebook/w2v-bert-2.0"
+semantic_layer_index: 16
+
+# Perceptual model for perceptual loss
+perceptual_model: "facebook/wav2vec2-xls-r-300m"
+perceptual_layers: [10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21]
+
+mel_loss_params:
+  n_mels: [5, 10, 20, 40, 80, 160, 320, 640]
+  window_lengths: [32, 64, 128, 256, 512, 1024, 2048, 4096]
+
+# optimizer
+gen_optim_params:
+  lr: 1.0
+  betas: [0.8, 0.9]
+disc_optim_params:
+  lr: 1.0
+  betas: [0.8, 0.9]
+gen_grad_clip: 1.0
+disc_grad_clip: 1.0
+
+# scheduler (set down_step to match max_steps per run on the CLI)
+gen_schedule_params:
+  warmup_step: 3000
+  down_step: 97000
+  min_lr: 2.0e-5 # this should be the final lr
+  max_lr: 1.0e-4
+disc_schedule_params:
+  warmup_step: 3000
+  down_step: 97000
+  min_lr: 2.0e-5 # this should be the final lr
+  max_lr: 1.0e-4

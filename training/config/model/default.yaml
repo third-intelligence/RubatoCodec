@@ -1,0 +1,99 @@
+# RubatoCodec default configuration (the released model):
+# adaptive-firing 12.5Hz (token, dur) codec, hybrid 16-layer RVQ
+# (cb1 = FSQ 4096 semantic-distilled layer + 15 DAC-style VQ residual layers),
+# fully causal decoder (zero lookahead), 44.1kHz output.
+codec_encoder:
+  ngf: 48
+  hidden_dim: 1024
+  up_ratios: [2, 2, 4, 4, 5]   # 50Hz latent grid (12.5Hz effective at firing ratio 0.25)
+  dilations: [1, 3, 9]
+  activation: "snake_beta"     # "snake_beta" or "silu"
+
+codec_decoder:
+  hidden_dim: 1024
+  activation: "snake_beta"
+  # Convolution padding mode:
+  #   "causal_full" (default): fully causal, zero lookahead — left-padded
+  #     Conv1d, right-trimmed ConvTranspose, forward-window ISTFT (leading-window
+  #     envelope correction; first 20ms hann^2 fade-in).
+  #   "causal": causal Conv1d only (symmetric ConvTranspose and output head keep
+  #     a lookahead).
+  #   "symmetric" / "asymmetric": non-causal variants.
+  conv_padding_mode: "causal_full"
+  resnet_kernel_size: 1     # ResnetBlock conv kernel size
+  embed_kernel_size: 3      # backbone embed conv kernel size
+  depth: 12
+  heads: 16
+  pos_emb_dim: 64
+  vq_dim: 2048
+  # Decoder attention causality (false = bidirectional; disables KV-cache /
+  # streaming decode).
+  attn_causal: true
+  # Residual quantizer (mode "rvq"): RubatoResidualQuantizer — cb1
+  # (semantic-distilled layer) + (num_quantizers - 1) residual layers.
+  # Depth = capacity; bits/frame = 12 * depth for codebook_size 4096.
+  # (mode "fsq" = the single FSQ stage of the original X-Codec-2.0,
+  # configured by fsq_levels / fsq_num_quantizers.)
+  quantizer:
+    mode: rvq
+    num_quantizers: 16
+    codebook_size: 4096
+    fsq_levels: [8, 8, 8, 8]    # 8^4 = 4096 (used by FSQ layers, i.e. cb1)
+    cb1_type: fsq         # fsq | vq — cb1 (semantic-distilled layer)
+    residual_type: vq     # fsq | vq — the num_quantizers-1 residual layers
+    # DAC-style per-sample quantizer dropout rate (1.0 = every sample draws
+    # depth ~ U{1..Q}; all layers still run every step).
+    quantize_dropout: 1.0
+    # VQ layers follow the DAC design (vendored in quantization/dac.py):
+    # factorized codebook_dim=8, L2-normalized lookup, gradient-learned codebook.
+    vq_codebook_dim: 8
+    vq_commitment_weight: 0.25  # DAC original setting
+    vq_codebook_weight: 1.0     # DAC original setting
+  dropout: 0.1
+  mlp_expansion: 4
+  attn_dropout: 0.0
+  # Upsampler for 44.1kHz output (50Hz grid -> x3 -> 150Hz, 150 * 294 = 44100)
+  upsampler_factors: [3]
+  upsampler_kernel_sizes: [9]
+  output_n_fft: 1176      # hop_length * 4 for 44.1kHz ISTFT
+  output_hop_length: 294  # 44100 / 150 = 294
+
+# Adaptive firing (variable-frame-rate sparse coding): 12.5Hz average
+# (target_ratio 0.25 on the 50Hz latent grid), cumulative allocation,
+# firing signals hnet_ms + flux, segment aggregation "mean", grid decoding.
+firing:
+  enabled: true
+  mode: "adaptive"          # adaptive (adaptive firing) | stride (fixed-interval baseline)
+  target_ratio: 0.25   # average firing ratio R/B (0.25 = 12.5Hz / 50Hz)
+  temp: 1.0            # sigmoid temperature of the straight-through firing mask (train-time only)
+  decision: "clock"    # clock (bounded cumulative allocation) | level
+  # Count the forced first firing inside the clock budget: the token count per
+  # utterance is exactly round(target_ratio * T). false allocates the full
+  # budget over all frames (~K + 1 tokens).
+  head_in_budget: true
+  # Firing-signal list; components are per-sequence mean-normalized and summed.
+  # Available: hnet | hnet_ms | flux | distill.
+  signals: [hnet_ms, flux]
+  hnet_ms_offsets: [[1, 0], [1, 1], [2, 1]]  # (past, future) offsets for hnet_ms
+  max_gap: 64          # saturation index for relative-position / dur / gap embeddings (durs themselves are not capped)
+  aggregate: "mean"    # mean | none — pre-quantization segment aggregation
+
+mpd:
+  periods: [2, 3, 5, 7, 11, 17, 23, 37]
+  max_downsample_channels: 512
+  channels: 16
+  channel_increasing_factor: 4
+
+mstft:
+  stft_params:
+    fft_sizes: [216, 348, 568, 920, 1494, 2414, 3908, 6328]
+    hop_sizes: [108, 174, 284, 460, 747, 1207, 1954, 3164]
+    win_lengths: [216, 348, 568, 920, 1494, 2414, 3908, 6328]
+    window: hann_window
+  in_channels: 1
+  out_channels: 1
+  kernel_sizes: [5, 3]
+  channels: 32
+  max_downsample_channels: 512
+  downsample_scales: [2, 2, 2]
+  use_weight_norm: True
