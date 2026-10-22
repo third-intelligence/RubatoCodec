@@ -1,7 +1,7 @@
 # RubatoCodec: Budgeted Adaptive Speech Tokenization with Streaming Decoding
 
 [![Model: Hugging Face](https://img.shields.io/badge/Model-%F0%9F%A4%97%20Hugging%20Face-yellow)](https://huggingface.co/third-intelligence/RubatoCodec)
-![Paper: coming soon](https://img.shields.io/badge/Paper-coming%20soon-lightgrey)
+[![Paper: arXiv](https://img.shields.io/badge/arXiv-2610.29434-b31b1b)](https://arxiv.org/abs/2610.29434)
 
 RubatoCodec is a neural speech codec that adaptively allocates variable-duration
 events under an exact utterance-level event budget and supports streaming waveform
@@ -155,6 +155,20 @@ examples/                 audio reconstruction example
 scripts/                  checkpoint conversion (Lightning -> safetensors)
 docs/                     architecture, usage, and configuration documentation
 incl_licenses/            licenses of derived / vendored third-party code
+```
+
+## Citation
+
+```bibtex
+@misc{arata2026rubatocodecbudgetedadaptivespeech,
+      title={RubatoCodec: Budgeted Adaptive Speech Tokenization with Streaming Decoding},
+      author={Chihiro Arata and Shohei Taniguchi and Gouki Minegishi and Kan Hatakeyama-Sato},
+      year={2026},
+      eprint={2610.29434},
+      archivePrefix={arXiv},
+      primaryClass={cs.SD},
+      url={https://arxiv.org/abs/2610.29434},
+}
 ```
 
 ## Acknowledgements
