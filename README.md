@@ -65,6 +65,19 @@ audio = codec.decode(enc, depth=8)  # bitrate control via residual depth
 sf.write("recon.wav", audio[0, 0].cpu().numpy(), codec.output_sr)
 ```
 
+For long recordings, opt into lower-memory encoding:
+
+```python
+codec = RubatoCodec.from_pretrained(
+    "third-intelligence/RubatoCodec", device="cuda", low_memory_encode=True,
+)
+```
+
+The same option is available on `from_checkpoint`. It preserves full semantic
+attention context without splitting the waveform. Short inputs use the original
+path; the default remains `False`. See [long recordings](docs/inference.md#long-recordings)
+for scope and limitations.
+
 Streaming decode:
 
 ```python

@@ -150,3 +150,32 @@ the result at `codec.output_sr`. Output includes any padding to the encoder hop.
 
 For multiple utterances and a `metadata.json` accepted by the evaluation CLI,
 see [Running evaluation](evaluation.md#running-evaluation).
+
+
+## Long recordings
+
+Set `low_memory_encode=True` on `RubatoCodec.from_pretrained` or
+`RubatoCodec.from_checkpoint` to reduce Wav2Vec2-BERT's temporary attention
+memory during encoding. The default is `False`; existing calls retain their
+original behavior. With `decoder_only=True`, this option has no effect and does
+not load the semantic model.
+
+For semantic sequences longer than 4,096 frames (about 82 seconds with the
+default 16 kHz W2V-BERT feature extractor), attention is computed in tiles of
+128 queries. Each query still attends to **all keys**. The implementation
+projects the small clipped-relative-position table before gathering scores,
+avoiding a `[time, time, head_dim]` embedding tensor. It does not split the
+waveform, shorten context, or change model weights or precision. Short inputs
+use the original attention implementation.
+
+This reduces attention's peak temporary memory, not its quadratic computational
+cost. Acoustic encoding and other tensors still grow with recording length;
+this option does not guarantee that arbitrarily long audio fits on every GPU.
+It is separate from `attn_window_sec`, which controls codec attention windows.
+
+The optimized path supports inference with Wav2Vec2-BERT `relative_key`
+attention and `output_attentions=False`. It rejects other position-embedding
+modes when enabled. The internal implementation was validated with Transformers
+4.57.6; other versions should be checked before deployment. Floating-point
+kernel differences can affect rounding, so bitwise-identical codes across all
+hardware, precision settings and inputs are not guaranteed.

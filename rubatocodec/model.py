@@ -129,6 +129,7 @@ class RubatoCodec:
         attn_window_sec: float | None | _Default = _DEFAULT,
         *,
         decoder_only: bool = False,
+        low_memory_encode: bool = False,
     ) -> RubatoCodec:
         """Load RubatoCodec from a safetensors file or a PyTorch Lightning checkpoint.
 
@@ -143,10 +144,16 @@ class RubatoCodec:
                 semantic model download. encode is unavailable on this instance.
                 Safetensors reads only decoding tensors; .ckpt still deserializes
                 the complete file before selecting weights.
+            low_memory_encode: Opt into bounded-memory Wav2Vec2-BERT attention
+                for inputs over 4,096 semantic frames. Preserves full context;
+                does not split audio. Defaults to False. Ignored in decoder-only
+                mode. Requires relative_key semantic attention.
 
         Returns:
             RubatoCodec instance ready for inference
         """
+        if not isinstance(low_memory_encode, bool):
+            raise TypeError("low_memory_encode must be a bool")
         path = Path(path)
 
         if path.suffix == ".safetensors":
@@ -157,7 +164,12 @@ class RubatoCodec:
             raise ValueError(f"Unsupported file format: {path.suffix}")
 
         return cls._build(
-            config, state_dict, device, attn_window_sec=attn_window_sec, decoder_only=decoder_only
+            config,
+            state_dict,
+            device,
+            attn_window_sec=attn_window_sec,
+            decoder_only=decoder_only,
+            low_memory_encode=low_memory_encode,
         )
 
     @staticmethod
@@ -196,6 +208,7 @@ class RubatoCodec:
         attn_window_sec: float | None | _Default = _DEFAULT,
         *,
         decoder_only: bool = False,
+        low_memory_encode: bool = False,
     ) -> RubatoCodec:
         enccfg = config["codec_encoder"]
         deccfg = config["codec_decoder"]
@@ -296,6 +309,10 @@ class RubatoCodec:
                 semantic_model_name, output_hidden_states=True
             )
             semantic_model.eval().to(device)
+            if low_memory_encode:
+                from .modules.low_memory_attention import enable_low_memory_attention
+
+                enable_low_memory_attention(semantic_model)
 
             feature_extractor = AutoFeatureExtractor.from_pretrained(semantic_model_name)
 
@@ -346,6 +363,7 @@ class RubatoCodec:
         *,
         attn_window_sec: float | None | _Default = _DEFAULT,
         decoder_only: bool = False,
+        low_memory_encode: bool = False,
     ) -> RubatoCodec:
         """Load RubatoCodec from a HuggingFace Hub repository.
 
@@ -359,10 +377,15 @@ class RubatoCodec:
             decoder_only: Load only decoding components, without downloading
                 the semantic model. The codec weight file is still downloaded
                 in full from the Hub; only decoding tensors are read from it.
+            low_memory_encode: Opt into full-context, bounded-memory semantic
+                attention for long encoding inputs. Defaults to False; ignored
+                with decoder_only=True. See from_checkpoint.
 
         Returns:
             RubatoCodec instance ready for inference.
         """
+        if not isinstance(low_memory_encode, bool):
+            raise TypeError("low_memory_encode must be a bool")
         from huggingface_hub import hf_hub_download
 
         safetensors_path = hf_hub_download(repo_id=repo_id, filename="model.safetensors")
@@ -372,6 +395,7 @@ class RubatoCodec:
             device=device,
             attn_window_sec=attn_window_sec,
             decoder_only=decoder_only,
+            low_memory_encode=low_memory_encode,
         )
 
     @torch.inference_mode()
